@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -68,40 +67,55 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
+        actions: <Widget>[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: ToggleButtons(
+              children: <Widget>[
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Text('kcal'),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Text('kJ'),
+                ),
+              ],
+              isSelected: [
+                _selectedUnit == EnergyUnit.kcal,
+                _selectedUnit == EnergyUnit.kj
+              ],
+              onPressed: (int index) {
+                setState(() {
+                  _selectedUnit = EnergyUnit.values[index];
+                  _controller.text = ''; // Clear text field when unit changes
+                });
+              },
+            ),
+          ),
+        ],
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            TextField(
-              controller: _controller,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Enter Energy',
-                suffix: Text(_selectedUnit == EnergyUnit.kcal ? 'kcal' : 'kJ'),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              TextField(
+                controller: _controller,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText:
+                      'Enter Energy (${_selectedUnit == EnergyUnit.kcal ? 'kcal' : 'kJ'})',
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: CupertinoSegmentedControl<EnergyUnit>(
-                children: const {
-                  EnergyUnit.kcal: Text('kcal'),
-                  EnergyUnit.kj: Text('kJ'),
-                },
-                onValueChanged: (EnergyUnit value) {
-                  setState(() {
-                    _selectedUnit = value;
-                  });
-                },
-                groupValue: _selectedUnit,
+              ElevatedButton(
+                onPressed: _addEnergy,
+                child: const Text('Add Energy'),
               ),
-            ),
-            ElevatedButton(
-              onPressed: _addEnergy,
-              child: const Text('Add Energy'),
-            ),
-            Text('Total Energy: $_totalEnergy kcal'),
-          ],
+              Text('Total Energy: $_totalEnergy kcal'),
+            ],
+          ),
         ),
       ),
     );
