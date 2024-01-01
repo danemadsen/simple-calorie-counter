@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
@@ -9,6 +11,18 @@ class EnergyEntry {
   final DateTime timestamp;
 
   EnergyEntry(this.energy, this.timestamp);
+
+  Map<String, dynamic> toJson() => {
+    'energy': energy,
+    'timestamp': timestamp.toIso8601String(),
+  };
+
+  factory EnergyEntry.fromJson(Map<String, dynamic> json) {
+    return EnergyEntry(
+      json['energy'],
+      DateTime.parse(json['timestamp']),
+    );
+  }
 }
 
 class HomePage extends StatefulWidget {
@@ -37,14 +51,20 @@ class _HomePageState extends State<HomePage> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _totalEnergy = prefs.getInt('total_energy') ?? 0;
-      // Load entries from SharedPreferences here if necessary
+      String? entriesJson = prefs.getString('entries');
+      if (entriesJson != null) {
+        Iterable l = json.decode(entriesJson);
+        _entries = List<EnergyEntry>.from(
+          l.map((model) => EnergyEntry.fromJson(model)));
+      }
     });
   }
 
   Future<void> _saveTotalEnergy() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('total_energy', _totalEnergy);
-    // Save entries to SharedPreferences here if necessary
+    String entriesJson = json.encode(_entries.map((e) => e.toJson()).toList());
+    await prefs.setString('entries', entriesJson);
   }
 
   void _resetEnergyAtMidnight() {
