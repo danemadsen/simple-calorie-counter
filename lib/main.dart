@@ -1,4 +1,4 @@
-import 'package:fitness/pages/home_page.dart';
+import 'package:simple_calorie_counter/pages/home_page.dart';
 import 'package:flutter/material.dart';
 
 void main() {
