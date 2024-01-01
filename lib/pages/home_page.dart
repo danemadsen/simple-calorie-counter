@@ -80,30 +80,34 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
+        centerTitle: true,
+        titleSpacing: 0,
         actions: <Widget>[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: ToggleButtons(
-              isSelected: [
-                _selectedUnit == EnergyUnit.kcal,
-                _selectedUnit == EnergyUnit.kj
-              ],
-              onPressed: (int index) {
-                setState(() {
-                  _selectedUnit = EnergyUnit.values[index];
-                  _controller.text = ''; // Clear text field when unit changes
-                });
-              },
-              children: const <Widget>[
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Text('kcal'),
-                ),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Text('kJ'),
-                ),
-              ],
+          Expanded(
+            child: Center(
+              child: ToggleButtons(
+                borderRadius: BorderRadius.circular(30.0), // Rounded corners
+                isSelected: [
+                  _selectedUnit == EnergyUnit.kcal,
+                  _selectedUnit == EnergyUnit.kj
+                ],
+                onPressed: (int index) {
+                  setState(() {
+                    _selectedUnit = EnergyUnit.values[index];
+                    _controller.text = ''; // Clear text field when unit changes
+                  });
+                },
+                children: const <Widget>[
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 30),
+                    child: Text('kcal'),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 30),
+                    child: Text('kJ'),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -139,8 +143,11 @@ class _HomePageState extends State<HomePage> {
                       });
                     },
                     child: ListTile(
-                      title: Text('${entry.energy} kcal'),
-                      subtitle: Text(DateFormat.yMMMd().add_Hms().format(entry.timestamp)),
+                      title: Text(
+                        '${entry.energy} kcal - ${DateFormat.yMMMd().add_Hms().format(entry.timestamp)}',
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis, // Ensures text is on one line
+                      ),
                     ),
                   );
                 },
