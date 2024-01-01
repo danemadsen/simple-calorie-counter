@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 
 enum EnergyUnit { kcal, kj }
+
+class EnergyEntry {
+  final int energy;
+  final DateTime timestamp;
+
+  EnergyEntry(this.energy, this.timestamp);
+}
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key, required this.title}) : super(key: key);
@@ -16,6 +24,7 @@ class _HomePageState extends State<HomePage> {
   final TextEditingController _controller = TextEditingController();
   int _totalEnergy = 0;
   EnergyUnit _selectedUnit = EnergyUnit.kcal;
+  List<EnergyEntry> _entries = [];
 
   @override
   void initState() {
@@ -28,12 +37,14 @@ class _HomePageState extends State<HomePage> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _totalEnergy = prefs.getInt('total_energy') ?? 0;
+      // Load entries from SharedPreferences here if necessary
     });
   }
 
   Future<void> _saveTotalEnergy() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('total_energy', _totalEnergy);
+    // Save entries to SharedPreferences here if necessary
   }
 
   void _resetEnergyAtMidnight() {
@@ -43,6 +54,7 @@ class _HomePageState extends State<HomePage> {
     Future.delayed(duration, () {
       setState(() {
         _totalEnergy = 0;
+        _entries.clear();
       });
       _saveTotalEnergy();
     });
@@ -50,14 +62,15 @@ class _HomePageState extends State<HomePage> {
 
   void _addEnergy() {
     final int energy = int.tryParse(_controller.text) ?? 0;
+    final int energyInKcal = _selectedUnit == EnergyUnit.kj
+        ? (energy * 0.239).round()
+        : energy;
+
     setState(() {
-      if (_selectedUnit == EnergyUnit.kj) {
-        // Assuming conversion rate: 1 kJ = 0.239 kcal
-        _totalEnergy += (energy * 0.239).round();
-      } else {
-        _totalEnergy += energy;
-      }
+      _entries.add(EnergyEntry(energyInKcal, DateTime.now()));
+      _totalEnergy += energyInKcal;
     });
+
     _saveTotalEnergy();
     _controller.clear();
   }
@@ -71,16 +84,6 @@ class _HomePageState extends State<HomePage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: ToggleButtons(
-              children: <Widget>[
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Text('kcal'),
-                ),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Text('kJ'),
-                ),
-              ],
               isSelected: [
                 _selectedUnit == EnergyUnit.kcal,
                 _selectedUnit == EnergyUnit.kj
@@ -91,31 +94,60 @@ class _HomePageState extends State<HomePage> {
                   _controller.text = ''; // Clear text field when unit changes
                 });
               },
+              children: const <Widget>[
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Text('kcal'),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Text('kJ'),
+                ),
+              ],
             ),
           ),
         ],
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              TextField(
-                controller: _controller,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText:
-                      'Enter Energy (${_selectedUnit == EnergyUnit.kcal ? 'kcal' : 'kJ'})',
-                ),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: <Widget>[
+            TextField(
+              controller: _controller,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Enter Energy (${_selectedUnit == EnergyUnit.kcal ? 'kcal' : 'kJ'})',
               ),
-              ElevatedButton(
-                onPressed: _addEnergy,
-                child: const Text('Add Energy'),
+            ),
+            ElevatedButton(
+              onPressed: _addEnergy,
+              child: const Text('Add Energy'),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _entries.length,
+                itemBuilder: (context, index) {
+                  final entry = _entries[index];
+                  return Dismissible(
+                    key: Key(entry.timestamp.toString()),
+                    onDismissed: (direction) {
+                      setState(() {
+                        _totalEnergy -= entry.energy;
+                        _entries.removeAt(index);
+                        _saveTotalEnergy();
+                      });
+                    },
+                    child: ListTile(
+                      title: Text('${entry.energy} kcal'),
+                      subtitle: Text(DateFormat.yMMMd().add_Hms().format(entry.timestamp)),
+                    ),
+                  );
+                },
               ),
-              Text('Total Energy: $_totalEnergy kcal'),
-            ],
-          ),
+            ),
+            Text('Total Energy: $_totalEnergy kcal'),
+          ],
         ),
       ),
     );
