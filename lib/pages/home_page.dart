@@ -37,6 +37,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final TextEditingController _kjController = TextEditingController();
   final TextEditingController _kcalController = TextEditingController();
+  int _servingMultiplier = 1;
   int _totalEnergy = 0;
   List<EnergyEntry> _entries = [];
 
@@ -118,7 +119,7 @@ class _HomePageState extends State<HomePage> {
                 final int kcal = int.tryParse(value) ?? 0;
 
                 setState(() {
-                  _entries.add(EnergyEntry(kcal, DateTime.now()));
+                  _entries.add(EnergyEntry(kcal * _servingMultiplier, DateTime.now()));
                   _pruneEntries();
                 });
 
@@ -148,7 +149,7 @@ class _HomePageState extends State<HomePage> {
                 final int kcal = (kj * 0.239).round();
 
                 setState(() {
-                  _entries.add(EnergyEntry(kcal, DateTime.now()));
+                  _entries.add(EnergyEntry(kcal * _servingMultiplier, DateTime.now()));
                   _pruneEntries();
                 });
 
@@ -164,6 +165,19 @@ class _HomePageState extends State<HomePage> {
                 } else {
                   _kcalController.text = kcal.toString();
                 }
+              },
+            ),
+            const SizedBox(height: 5),
+            Slider(
+              value: _servingMultiplier.toDouble(),
+              min: 1,
+              max: 10,
+              divisions: 9,
+              label: _servingMultiplier.round().toString(),
+              onChanged: (double value) {
+                setState(() {
+                  _servingMultiplier = value.round();
+                });
               },
             ),
             const Divider(),

@@ -33,6 +33,12 @@ class MyApp extends StatelessWidget {
           filled: true,
           floatingLabelBehavior: FloatingLabelBehavior.never,
         ),
+        sliderTheme: SliderThemeData(
+        activeTrackColor: Colors.blue.shade900,
+        inactiveTrackColor: Colors.grey.shade800,
+        thumbColor: Colors.blue,
+        overlayColor: Colors.blue.shade900,
+      ),
       ),
       home: const HomePage(title: 'Fitness Metrics'),
     );
