@@ -35,9 +35,9 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final TextEditingController _controller = TextEditingController();
+  final TextEditingController _kjController = TextEditingController();
+  final TextEditingController _kcalController = TextEditingController();
   int _totalEnergy = 0;
-  EnergyUnit _selectedUnit = EnergyUnit.kcal;
   List<EnergyEntry> _entries = [];
 
   @override
@@ -50,21 +50,37 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadTotalEnergy() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _totalEnergy = prefs.getInt('total_energy') ?? 0;
       String? entriesJson = prefs.getString('entries');
       if (entriesJson != null) {
         Iterable l = json.decode(entriesJson);
         _entries = List<EnergyEntry>.from(
           l.map((model) => EnergyEntry.fromJson(model)));
+
+        _pruneEntries();
       }
     });
   }
 
   Future<void> _saveTotalEnergy() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('total_energy', _totalEnergy);
     String entriesJson = json.encode(_entries.map((e) => e.toJson()).toList());
     await prefs.setString('entries', entriesJson);
+  }
+
+  void _pruneEntries() {
+    //prune entries from previous days
+    for (final entry in _entries) {
+      if (entry.timestamp.day != DateTime.now().day) {
+        _entries.removeAt(_entries.indexOf(entry));
+        break;
+      }
+    }
+
+    //recalculate total energy
+    _totalEnergy = 0;
+    for (final entry in _entries) {
+      _totalEnergy += entry.energy;
+    }
   }
 
   void _resetEnergyAtMidnight() {
@@ -73,64 +89,19 @@ class _HomePageState extends State<HomePage> {
     final duration = midnight.difference(now);
     Future.delayed(duration, () {
       setState(() {
-        _totalEnergy = 0;
-        _entries.clear();
+        _pruneEntries();
       });
       _saveTotalEnergy();
     });
-  }
-
-  void _addEnergy() {
-    final int energy = int.tryParse(_controller.text) ?? 0;
-    final int energyInKcal = _selectedUnit == EnergyUnit.kj
-        ? (energy * 0.239).round()
-        : energy;
-
-    setState(() {
-      _entries.add(EnergyEntry(energyInKcal, DateTime.now()));
-      _totalEnergy += energyInKcal;
-    });
-
-    _saveTotalEnergy();
-    _controller.clear();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Text('Total Energy: $_totalEnergy kcal'),
         centerTitle: true,
-        titleSpacing: 0,
-        actions: <Widget>[
-          Expanded(
-            child: Center(
-              child: ToggleButtons(
-                borderRadius: BorderRadius.circular(30.0), // Rounded corners
-                isSelected: [
-                  _selectedUnit == EnergyUnit.kcal,
-                  _selectedUnit == EnergyUnit.kj
-                ],
-                onPressed: (int index) {
-                  setState(() {
-                    _selectedUnit = EnergyUnit.values[index];
-                    _controller.text = ''; // Clear text field when unit changes
-                  });
-                },
-                children: const <Widget>[
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 30),
-                    child: Text('kcal'),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 30),
-                    child: Text('kJ'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+        titleSpacing: 0
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -138,42 +109,102 @@ class _HomePageState extends State<HomePage> {
           mainAxisAlignment: MainAxisAlignment.start,
           children: <Widget>[
             TextField(
-              controller: _controller,
+              controller: _kcalController,
               keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Enter Energy (${_selectedUnit == EnergyUnit.kcal ? 'kcal' : 'kJ'})',
+              decoration: const InputDecoration(
+                labelText: 'Enter Energy (kcal)',
               ),
+              onSubmitted: (value) {
+                final int kcal = int.tryParse(value) ?? 0;
+
+                setState(() {
+                  _entries.add(EnergyEntry(kcal, DateTime.now()));
+                  _pruneEntries();
+                });
+
+                _saveTotalEnergy();
+                _kcalController.clear();
+                _kjController.clear();
+              },
+              onChanged: (value) {
+                final int kcal = int.tryParse(_kcalController.text) ?? 0;
+                final int kj = (kcal / 0.239).round();
+                if (kj == 0) {
+                  _kjController.clear();
+                } else {
+                  _kjController.text = kj.toString();
+                }
+              },
             ),
-            ElevatedButton(
-              onPressed: _addEnergy,
-              child: const Text('Add Energy'),
+            const SizedBox(height: 5),
+            TextField(
+              controller: _kjController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Enter Energy (kJ)',
+              ),
+              onSubmitted: (value) {
+                final int kj = int.tryParse(value) ?? 0;
+                final int kcal = (kj * 0.239).round();
+
+                setState(() {
+                  _entries.add(EnergyEntry(kcal, DateTime.now()));
+                  _pruneEntries();
+                });
+
+                _saveTotalEnergy();
+                _kcalController.clear();
+                _kjController.clear();
+              },
+              onChanged: (value) {
+                final int kj = int.tryParse(_kjController.text) ?? 0;
+                final int kcal = (kj * 0.239).round();
+                if (kcal == 0) {
+                  _kcalController.clear();
+                } else {
+                  _kcalController.text = kcal.toString();
+                }
+              },
             ),
+            const Divider(),
             Expanded(
               child: ListView.builder(
                 itemCount: _entries.length,
                 itemBuilder: (context, index) {
                   final entry = _entries[index];
-                  return Dismissible(
-                    key: Key(entry.timestamp.toString()),
-                    onDismissed: (direction) {
-                      setState(() {
-                        _totalEnergy -= entry.energy;
-                        _entries.removeAt(index);
-                        _saveTotalEnergy();
-                      });
-                    },
-                    child: ListTile(
-                      title: Text(
-                        '${entry.energy} kcal - ${DateFormat.yMMMd().add_Hms().format(entry.timestamp)}',
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis, // Ensures text is on one line
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0), // Add padding here
+                    child: Dismissible(
+                      key: Key(entry.timestamp.toString()),
+                      onDismissed: (direction) {
+                        setState(() {
+                          _totalEnergy -= entry.energy;
+                          _entries.removeAt(index);
+                          _saveTotalEnergy();
+                        });
+                      },
+                      background: Container(
+                        color: Colors.red,
+                        alignment: Alignment.centerLeft,
+                        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                        child: const Icon(Icons.delete, color: Colors.white),
+                      ),
+                      child: ListTile(
+                        title: Text(
+                          '${entry.energy} kcal - ${DateFormat.yMMMd().add_Hms().format(entry.timestamp)}',
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(10.0)),
+                        ),
+                        tileColor: Colors.blue.shade900,
                       ),
                     ),
                   );
                 },
               ),
             ),
-            Text('Total Energy: $_totalEnergy kcal'),
           ],
         ),
       ),
